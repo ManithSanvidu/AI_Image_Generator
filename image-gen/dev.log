@@ -1,0 +1,37 @@
+
+> image-gen@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.56.1:3000
+- Environments: .env
+✓ Ready in 7.1s
+⚠ Slow filesystem detected. The benchmark took 279ms. If D:\Desktop\Projects\AI_Image_Generator\image-gen\.next/dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+○ Compiling instrumentation Node.js ...
+○ Compiling instrumentation Edge ...
+○ Compiling proxy ...
+
+<--- Last few GCs --->
+
+[21528:000002162E2D7000]    77540 ms: Scavenge 60.8 (68.2) -> 57.0 (72.9) MB, pooled: 0 MB, 72.83 / 0.00 ms  (average mu = 0.996, current mu = 0.996) allocation failure; 
+[21528:000002162E2D7000]    78146 ms: Scavenge 67.5 (79.4) -> 63.5 (78.1) MB, pooled: 0 MB, 16.47 / 0.00 ms  (average mu = 0.996, current mu = 0.996) allocation failure; 
+
+FATAL ERROR: NewSpace::EnsureCurrentCapacity Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6FE4897FF 
+ 2: 00007FF6FF0CDA77 
+ 3: 00007FF6FEECE327 
+ 4: 00007FF6FEE8EDC3 
+ 5: 00007FF6FEED072A 
+ 6: 00007FF6FEECFD56 
+ 7: 00007FF6FEEE0CE2 
+ 8: 00007FF6FEEE080B 
+ 9: 00007FF7003489AD 
+10: 00007FF6FEECBDF0 
+11: 00007FF6FEF4F979 
+12: 00007FF6FEAC5888 
+13: 000002166693733A 
+[?25h
