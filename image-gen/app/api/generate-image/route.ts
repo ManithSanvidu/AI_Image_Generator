@@ -37,15 +37,10 @@ type HuggingFaceErrorResponse = {
   estimated_time?: number;
 };
 
-function isImageGenerationModel(model: string): model is ImageGenerationModel {
+function isImageGenerationModel(
+  model: string
+): model is ImageGenerationModel {
   return imageModels.includes(model as ImageGenerationModel);
-}
-
-function isRetryError(error: unknown): error is RetryErrorLike {
-  if (!error || typeof error !== "object") return false;
-
-  const err = error as Record<string, unknown>;
-  return err.name === "RetryError" && "lastError" in err;
 }
 
 function getErrorMessage(error: unknown) {
@@ -62,7 +57,7 @@ function getErrorMessage(error: unknown) {
 function getGeneratedFileName(
   originalFileName: string | undefined,
   styleSlug: string,
-  mediaType: string,
+  mediaType: string
 ) {
   const extension = mediaType.split("/")[1] ?? "png";
   const baseName =
@@ -71,7 +66,6 @@ function getGeneratedFileName(
   return `${baseName}-${styleSlug}-${Date.now()}.${extension}`;
 }
 
-/* ✅ FIXED FUNCTION (THIS WAS CAUSING YOUR ERROR) */
 async function inferImageAspectRatio(
   imageBuffer: Buffer
 ): Promise<EditImageAspectRatio> {
@@ -80,9 +74,12 @@ async function inferImageAspectRatio(
 
     if (!metadata.width || !metadata.height) return "1:1";
 
-    const aspectRatio = metadata.width / metadata.height;
+    const ratio = metadata.width / metadata.height;
 
-    const ratios: Array<{ label: EditImageAspectRatio; value: number }> = [
+    const ratios: Array<{
+      label: EditImageAspectRatio;
+      value: number;
+    }> = [
       { label: "1:1", value: 1 },
       { label: "3:4", value: 3 / 4 },
       { label: "4:3", value: 4 / 3 },
@@ -90,12 +87,11 @@ async function inferImageAspectRatio(
       { label: "16:9", value: 16 / 9 },
     ];
 
-    const closest = ratios.reduce((prev, curr) => {
-      return Math.abs(curr.value - aspectRatio) <
-        Math.abs(prev.value - aspectRatio)
+    const closest = ratios.reduce((prev, curr) =>
+      Math.abs(curr.value - ratio) < Math.abs(prev.value - ratio)
         ? curr
-        : prev;
-    });
+        : prev
+    );
 
     return closest.label;
   } catch {
@@ -115,17 +111,11 @@ export async function POST(request: Request) {
   }
 
   const monthlyLimit = getMonthlyGenerationLimit(has);
-  const usedThisMonth = await countGenerationsSince(
-    userId,
-    utxMonthStart()
-  );
+  const used = await countGenerationsSince(userId, utxMonthStart());
 
-  if (usedThisMonth >= monthlyLimit) {
+  if (used >= monthlyLimit) {
     return NextResponse.json(
-      {
-        error: `Monthly generation limit reached (${monthlyLimit}).`,
-        code: "QUOTA_EXCEEDED",
-      },
+      { error: "Monthly limit reached" },
       { status: 429 }
     );
   }
@@ -133,18 +123,23 @@ export async function POST(request: Request) {
   const headers = getHuggingFaceHeaders();
   if (!headers) {
     return NextResponse.json(
-      { error: "Missing HUGGINGFACE_API_KEY." },
+      { error: "Missing API key" },
       { status: 500 }
     );
   }
 
   const body = (await request.json()) as GenerateImageRequest;
-  const { model, originalFileName, sourceImageUrl, sourceMimeType, styleSlug } =
-    body;
+  const {
+    model,
+    originalFileName,
+    sourceImageUrl,
+    sourceMimeType,
+    styleSlug,
+  } = body;
 
   if (!sourceImageUrl) {
     return NextResponse.json(
-      { error: "Please upload an image first." },
+      { error: "Missing image" },
       { status: 400 }
     );
   }
@@ -154,21 +149,22 @@ export async function POST(request: Request) {
     !ACCEPTED_SOURCE_IMAGE_MIME_TYPES.has(sourceMimeType)
   ) {
     return NextResponse.json(
-      { error: "Only JPG, PNG, and WEBP files are supported." },
+      { error: "Invalid image type" },
       { status: 400 }
     );
   }
 
-  if (typeof styleSlug !== "string") {
+  if (!styleSlug) {
     return NextResponse.json(
-      { error: "Please choose a style." },
+      { error: "Missing style" },
       { status: 400 }
     );
   }
 
+  // ✅ FIXED MODEL VALIDATION
   if (!model || !isImageGenerationModel(model)) {
     return NextResponse.json(
-      { error: "Invalid or unsupported model." },
+      { error: "Invalid model" },
       { status: 400 }
     );
   }
@@ -178,7 +174,7 @@ export async function POST(request: Request) {
   const preset = getStylePreset(styleSlug);
   if (!preset) {
     return NextResponse.json(
-      { error: "Unknown style preset." },
+      { error: "Invalid style preset" },
       { status: 400 }
     );
   }
@@ -186,7 +182,7 @@ export async function POST(request: Request) {
   const imageResponse = await fetch(sourceImageUrl);
   if (!imageResponse.ok) {
     return NextResponse.json(
-      { error: "Could not fetch source image." },
+      { error: "Failed to fetch image" },
       { status: 404 }
     );
   }
@@ -195,8 +191,6 @@ export async function POST(request: Request) {
   const aspectRatio = await inferImageAspectRatio(imageBuffer);
 
   const prompt = preset.prompt;
-  const negativePrompt =
-    "No extra limbs, duplicate subjects, or distorted faces.";
 
   const size =
     aspectRatio === "16:9"
@@ -208,7 +202,6 @@ export async function POST(request: Request) {
   const payload = {
     inputs: prompt,
     parameters: {
-      negative_prompt: negativePrompt,
       guidance_scale: 7.5,
       num_inference_steps: 4,
       width: size.width,
@@ -219,7 +212,7 @@ export async function POST(request: Request) {
   try {
     const response = await Sentry.startSpan(
       {
-        name: `ai.agent.${GENERATION_AGENT_NAME}`,
+        name: `ai.${GENERATION_AGENT_NAME}`,
         op: "ai.workflow",
       },
       async () =>
@@ -270,16 +263,12 @@ export async function POST(request: Request) {
       style: preset,
       promptUsed: prompt,
     });
-  } catch (e: unknown) {
+  } catch (e) {
     console.error(e);
     Sentry.captureException(e);
 
-    const errorMessage = getErrorMessage(e);
-
     return NextResponse.json(
-      {
-        error: "Image generation failed. " + errorMessage,
-      },
+      { error: "Image generation failed" },
       { status: 500 }
     );
   }
