@@ -9,3 +9,14 @@ export const imageModelLabels: Record<ImageGenerationModel, string> = {
   "black-forest-labs/FLUX.1-schnell": "FLUX.1 Schnell",
   "runwayml/stable-diffusion-v1-5": "Stable Diffusion v1.5",
 };
+
+
+export const defaultImageModel: ImageGenerationModel =
+  "black-forest-labs/FLUX.1-schnell";
+
+
+export function isValidImageModel(
+  model: string
+): model is ImageGenerationModel {
+  return (imageModels as readonly string[]).includes(model);
+}
